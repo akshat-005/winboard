@@ -96,6 +96,7 @@ export default function Today({ habits, wins, onLogHabit, onUnlogHabit, onAddOut
               placeholder="What did you win? (e.g. Won the match)"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submitPanel()}
             />
           )}
           {panel === 'clutch' && (
@@ -104,6 +105,7 @@ export default function Today({ habits, wins, onLogHabit, onUnlogHabit, onAddOut
               placeholder="Short title (optional)"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submitPanel()}
             />
           )}
           <textarea

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from './supabaseClient'
+import { supabase, isConfigured } from './supabaseClient'
 import Auth from './components/Auth'
 import Today from './components/Today'
 import Habits from './components/Habits'
@@ -135,6 +135,23 @@ export default function App() {
     await supabase.from('habits').delete().eq('user_id', userId)
     setWins([])
     setHabits([])
+  }
+
+  if (!isConfigured) {
+    return (
+      <div className="loading-screen" style={{ flexDirection: 'column', gap: '20px', padding: '40px', textAlign: 'center' }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', color: 'var(--brass)' }}>WINBOARD</h1>
+        <div style={{ maxWidth: '400px', lineHeight: '1.6', background: 'var(--pine)', padding: '24px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+          <p style={{ margin: '0 0 16px 0', fontWeight: 'bold' }}>Supabase connection is not configured yet.</p>
+          <p style={{ margin: '0 0 16px 0', fontSize: '13px' }}>Please copy <code style={{ fontFamily: 'var(--font-mono)', background: 'var(--pine-dark)', padding: '2px 6px', borderRadius: '3px' }}>.env.example</code> to <code style={{ fontFamily: 'var(--font-mono)', background: 'var(--pine-dark)', padding: '2px 6px', borderRadius: '3px' }}>.env</code> in the project directory and fill in your Supabase credentials:</p>
+          <pre style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', textAlign: 'left', background: 'var(--pine-dark)', padding: '12px', borderRadius: '4px', overflowX: 'auto', margin: '0 0 16px 0', border: '1px solid var(--line)' }}>
+{`VITE_SUPABASE_URL=your_project_url
+VITE_SUPABASE_ANON_KEY=your_anon_key`}
+          </pre>
+          <p style={{ margin: 0, fontSize: '12px', color: 'var(--chalk-dim)' }}>After creating the file, restart the development server.</p>
+        </div>
+      </div>
+    )
   }
 
   if (session === undefined) {
