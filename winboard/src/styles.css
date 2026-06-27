@@ -584,3 +584,26 @@ textarea {
   font-family: var(--font-mono);
   font-size: 13px;
 }
+
+/* ---------- Social tab (4-tab layout) ---------- */
+
+/* Slightly tighter letter-spacing so SOCIAL fits alongside TODAY/HABITS/STATS */
+.tabs .tab:nth-child(4) {
+  letter-spacing: 0.8px;
+}
+
+/* Keep inline badges from pushing tab height */
+.tab .tab-badge {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 5px;
+  background: var(--brass);
+  color: var(--pine-dark);
+  border-radius: 50%;
+  font-size: 8px;
+  font-weight: 700;
+  width: 14px;
+  height: 14px;
+  line-height: 14px;
+  text-align: center;
+}
