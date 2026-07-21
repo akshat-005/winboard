@@ -1,6 +1,32 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { TIERS, TIER_ORDER } from '../lib/winLogic'
+
+// Mobile browsers often discard backgrounded tabs to reclaim memory, which reloads the
+// page fresh on return and wipes in-memory state. Stash an unconfirmed review here so it
+// survives that.
+const STORAGE_KEY = 'winboard_scan_review'
+
+function loadStoredReview() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function saveStoredReview(status, candidates) {
+  try {
+    if (status === 'reviewing' && candidates.length > 0) {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ status, candidates }))
+    } else {
+      sessionStorage.removeItem(STORAGE_KEY)
+    }
+  } catch {
+    // sessionStorage unavailable (e.g. private browsing) — nothing to persist
+  }
+}
 
 function makeId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -62,9 +88,13 @@ function resolveRouting(item, habits) {
 
 export default function ScanWins({ habits, onConfirm }) {
   const fileInputRef = useRef(null)
-  const [status, setStatus] = useState('idle') // idle | scanning | reviewing | error
+  const [status, setStatus] = useState(() => loadStoredReview()?.status || 'idle') // idle | scanning | reviewing | error
   const [error, setError] = useState('')
-  const [candidates, setCandidates] = useState([])
+  const [candidates, setCandidates] = useState(() => loadStoredReview()?.candidates || [])
+
+  useEffect(() => {
+    saveStoredReview(status, candidates)
+  }, [status, candidates])
 
   function triggerPick() {
     fileInputRef.current?.click()
