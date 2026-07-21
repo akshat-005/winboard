@@ -14,6 +14,7 @@ export default function App() {
   const [profile, setProfile] = useState(undefined) // undefined = loading, null = needs gate
   const [habits, setHabits] = useState([])
   const [wins, setWins] = useState([])
+  const [pendingTasks, setPendingTasks] = useState([])
   const [tab, setTab] = useState('today')
   const [foughtBack, setFoughtBack] = useState(false)
   const [dataLoading, setDataLoading] = useState(true)
@@ -51,6 +52,7 @@ export default function App() {
       setProfile(undefined)
       setHabits([])
       setWins([])
+      setPendingTasks([])
     }
   }, [session]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -88,12 +90,14 @@ export default function App() {
   // ─────────────────────────────────────────────────────────────
   async function loadData() {
     setDataLoading(true)
-    const [habitsRes, winsRes] = await Promise.all([
+    const [habitsRes, winsRes, pendingRes] = await Promise.all([
       supabase.from('habits').select('*').order('created_at', { ascending: true }),
       supabase.from('wins').select('*').order('ts', { ascending: true }),
+      supabase.from('pending_tasks').select('*').order('created_at', { ascending: true }),
     ])
     if (!habitsRes.error) setHabits(habitsRes.data || [])
     if (!winsRes.error) setWins(winsRes.data || [])
+    if (!pendingRes.error) setPendingTasks(pendingRes.data || [])
     setDataLoading(false)
   }
 
@@ -134,24 +138,51 @@ export default function App() {
     await insertWin({ type: 'clutch', habit_id: null, name, tier, points: TIERS[tier].points, note })
   }
 
-  async function onAddScannedWins(items) {
+  async function onAddPendingTasks(items) {
     const userId = session.user.id
-    const ts = new Date().toISOString()
+
+    // Items tagged for a habit that doesn't exist yet need that habit created first.
+    const needsNewHabit = items.filter((item) => item.type === 'habit' && !item.habitId)
+    const habitIdByItem = new Map()
+    if (needsNewHabit.length > 0) {
+      const habitRows = needsNewHabit.map((item) => ({ user_id: userId, name: item.name, tier: item.tier, active: true }))
+      const { data: newHabits, error: habitError } = await supabase.from('habits').insert(habitRows).select()
+      if (habitError) { console.error(habitError); return }
+      needsNewHabit.forEach((item, i) => habitIdByItem.set(item, newHabits[i].id))
+      setHabits((prev) => [...prev, ...newHabits])
+    }
+
     const rows = items.map((item) => ({
       user_id: userId,
-      ts,
-      type: 'outcome',
-      habit_id: null,
+      type: item.type,
+      habit_id: item.habitId ?? habitIdByItem.get(item) ?? null,
       name: item.name,
       tier: item.tier,
-      points: TIERS[item.tier].points,
       note: item.note,
     }))
-    const { data, error } = await supabase.from('wins').insert(rows).select()
+    const { data, error } = await supabase.from('pending_tasks').insert(rows).select()
     if (error) { console.error(error); return }
-    const updated = [...wins, ...data]
-    setWins(updated)
-    flashFoughtBack(updated)
+    setPendingTasks((prev) => [...prev, ...data])
+  }
+
+  async function onLogPendingTask(task) {
+    await insertWin({
+      type: task.type,
+      habit_id: task.habit_id,
+      name: task.name,
+      tier: task.tier,
+      points: TIERS[task.tier].points,
+      note: task.note,
+    })
+    const { error } = await supabase.from('pending_tasks').delete().eq('id', task.id)
+    if (error) { console.error(error); return }
+    setPendingTasks((prev) => prev.filter((t) => t.id !== task.id))
+  }
+
+  async function onDismissPendingTask(taskId) {
+    const { error } = await supabase.from('pending_tasks').delete().eq('id', taskId)
+    if (error) { console.error(error); return }
+    setPendingTasks((prev) => prev.filter((t) => t.id !== taskId))
   }
 
   async function onAddHabit({ name, tier }) {
@@ -455,11 +486,14 @@ VITE_SUPABASE_ANON_KEY=your_anon_key`}
           <Today
             habits={habits}
             wins={wins}
+            pendingTasks={pendingTasks}
             onLogHabit={onLogHabit}
             onUnlogHabit={onUnlogHabit}
             onAddOutcome={onAddOutcome}
             onAddClutch={onAddClutch}
-            onAddScannedWins={onAddScannedWins}
+            onAddPendingTasks={onAddPendingTasks}
+            onLogPendingTask={onLogPendingTask}
+            onDismissPendingTask={onDismissPendingTask}
           />
         )}
         {tab === 'habits' && (
