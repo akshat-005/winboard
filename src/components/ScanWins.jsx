@@ -2,7 +2,21 @@ import { useRef, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { TIERS, TIER_ORDER } from '../lib/winLogic'
 
-export default function ScanWins({ onConfirm }) {
+function resolveRouting(item, habits) {
+  if (item.habitMatch) {
+    const matched = habits.find((h) => h.name.toLowerCase() === item.habitMatch.toLowerCase())
+    if (matched) return { type: 'habit', habitId: matched.id, badge: `→ Habit: ${matched.name}` }
+  }
+  if (item.explicitType === 'habit') {
+    return { type: 'habit', habitId: null, badge: '→ New habit' }
+  }
+  if (item.explicitType === 'clutch') {
+    return { type: 'clutch', habitId: null, badge: '→ Clutch' }
+  }
+  return { type: 'outcome', habitId: null, badge: null }
+}
+
+export default function ScanWins({ habits, onConfirm }) {
   const fileInputRef = useRef(null)
   const [status, setStatus] = useState('idle') // idle | scanning | reviewing | error
   const [error, setError] = useState('')
@@ -33,8 +47,8 @@ export default function ScanWins({ onConfirm }) {
       })
       const imageBase64 = dataUrl.split(',')[1]
 
-      const { data, error: fnError } = await supabase.functions.invoke('scan-todos', {
-        body: { imageBase64, mimeType: file.type },
+      const { data, error: fnError } = await supabase.functions.invoke('clever-worker', {
+        body: { imageBase64, mimeType: file.type, habitNames: habits.map((h) => h.name) },
       })
       if (fnError) throw fnError
       if (data?.error) throw new Error(data.error)
@@ -47,13 +61,17 @@ export default function ScanWins({ onConfirm }) {
       }
 
       setCandidates(
-        items.map((item) => ({
-          id: crypto.randomUUID(),
-          name: item.name || 'Untitled',
-          tier: TIER_ORDER.includes(item.tier) ? item.tier : 'silver',
-          note: item.note || '',
-          checked: true,
-        }))
+        items.map((item) => {
+          const routing = resolveRouting(item, habits)
+          return {
+            id: crypto.randomUUID(),
+            name: item.name || 'Untitled',
+            tier: TIER_ORDER.includes(item.tier) ? item.tier : 'silver',
+            note: item.note || '',
+            checked: true,
+            ...routing,
+          }
+        })
       )
       setStatus('reviewing')
     } catch (err) {
@@ -73,7 +91,15 @@ export default function ScanWins({ onConfirm }) {
   function confirm() {
     const checked = candidates.filter((c) => c.checked && c.name.trim())
     if (checked.length === 0) return
-    onConfirm(checked.map(({ name, tier, note }) => ({ name: name.trim(), tier, note: note.trim() || null })))
+    onConfirm(
+      checked.map(({ name, tier, note, type, habitId }) => ({
+        name: name.trim(),
+        tier,
+        note: note.trim() || null,
+        type,
+        habitId,
+      }))
+    )
     reset()
   }
 
@@ -122,6 +148,11 @@ export default function ScanWins({ onConfirm }) {
                   value={c.name}
                   onChange={(e) => updateCandidate(c.id, { name: e.target.value })}
                 />
+                {c.badge && (
+                  <div className="win-note" style={{ marginTop: -4, marginBottom: 8 }}>
+                    {c.badge}
+                  </div>
+                )}
                 <div className="tier-select">
                   {TIER_ORDER.map((t) => (
                     <button
@@ -151,7 +182,7 @@ export default function ScanWins({ onConfirm }) {
               Cancel
             </button>
             <button className="primary-btn" onClick={confirm} disabled={checkedCount === 0}>
-              Confirm & add {checkedCount} {checkedCount === 1 ? 'win' : 'wins'}
+              Confirm & add {checkedCount} {checkedCount === 1 ? 'task' : 'tasks'}
             </button>
           </div>
         </div>

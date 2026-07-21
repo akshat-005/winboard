@@ -2,7 +2,18 @@ import { useState } from 'react'
 import { TIERS, TIER_ORDER, isLoggedToday, winsOnDate, dateStr } from '../lib/winLogic'
 import ScanWins from './ScanWins'
 
-export default function Today({ habits, wins, onLogHabit, onUnlogHabit, onAddOutcome, onAddClutch, onAddScannedWins }) {
+export default function Today({
+  habits,
+  wins,
+  pendingTasks,
+  onLogHabit,
+  onUnlogHabit,
+  onAddOutcome,
+  onAddClutch,
+  onAddPendingTasks,
+  onLogPendingTask,
+  onDismissPendingTask,
+}) {
   const today = dateStr()
   const [promoted, setPromoted] = useState(new Set())
   const [panel, setPanel] = useState(null) // null | 'outcome' | 'clutch'
@@ -80,6 +91,31 @@ export default function Today({ habits, wins, onLogHabit, onUnlogHabit, onAddOut
         )
       })}
 
+      {pendingTasks.length > 0 && (
+        <>
+          <div className="section-title">Scanned tasks</div>
+          {pendingTasks.map((task) => (
+            <div className="habit-row" key={task.id}>
+              <div className="habit-name">
+                {task.name}
+                {task.note && <span className="win-note">{task.note}</span>}
+              </div>
+              <span className={`tier-pill tier-${task.tier}`}>{TIERS[task.tier].label}</span>
+              <button className="log-btn" onClick={() => onLogPendingTask(task)}>
+                Log win
+              </button>
+              <button
+                className="scan-candidate-remove"
+                onClick={() => onDismissPendingTask(task.id)}
+                title="Discard"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </>
+      )}
+
       <div className="action-row">
         <button className="action-btn" onClick={() => openPanel('outcome')}>
           + Outcome win
@@ -89,7 +125,7 @@ export default function Today({ habits, wins, onLogHabit, onUnlogHabit, onAddOut
         </button>
       </div>
 
-      <ScanWins onConfirm={onAddScannedWins} />
+      <ScanWins habits={activeHabits} onConfirm={onAddPendingTasks} />
 
       {panel && (
         <div className="inline-panel">
