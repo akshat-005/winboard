@@ -2,6 +2,50 @@ import { useRef, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { TIERS, TIER_ORDER } from '../lib/winLogic'
 
+function makeId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `id-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+// Phone camera photos can be 4000px+ and several MB; shrink+re-encode client-side so the
+// upload doesn't stall on mobile networks or hit the Edge Function's request size limit.
+async function fileToResizedBase64(file, maxDim = 1600, quality = 0.82) {
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = () => reject(reader.error || new Error('Could not read that file.'))
+    reader.readAsDataURL(file)
+  })
+
+  const img = await new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error('Could not decode that image.'))
+    image.src = dataUrl
+  })
+
+  let { width, height } = img
+  if (width > maxDim || height > maxDim) {
+    if (width >= height) {
+      height = Math.round((height * maxDim) / width)
+      width = maxDim
+    } else {
+      width = Math.round((width * maxDim) / height)
+      height = maxDim
+    }
+  }
+
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+
+  const resizedDataUrl = canvas.toDataURL('image/jpeg', quality)
+  return { imageBase64: resizedDataUrl.split(',')[1], mimeType: 'image/jpeg' }
+}
+
 function resolveRouting(item, habits) {
   if (item.habitMatch) {
     const matched = habits.find((h) => h.name.toLowerCase() === item.habitMatch.toLowerCase())
@@ -39,16 +83,10 @@ export default function ScanWins({ habits, onConfirm }) {
     setStatus('scanning')
     setError('')
     try {
-      const dataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve(reader.result)
-        reader.onerror = reject
-        reader.readAsDataURL(file)
-      })
-      const imageBase64 = dataUrl.split(',')[1]
+      const { imageBase64, mimeType } = await fileToResizedBase64(file)
 
       const { data, error: fnError } = await supabase.functions.invoke('clever-worker', {
-        body: { imageBase64, mimeType: file.type, habitNames: habits.map((h) => h.name) },
+        body: { imageBase64, mimeType, habitNames: habits.map((h) => h.name) },
       })
       if (fnError) throw fnError
       if (data?.error) throw new Error(data.error)
@@ -64,7 +102,7 @@ export default function ScanWins({ habits, onConfirm }) {
         items.map((item) => {
           const routing = resolveRouting(item, habits)
           return {
-            id: crypto.randomUUID(),
+            id: makeId(),
             name: item.name || 'Untitled',
             tier: TIER_ORDER.includes(item.tier) ? item.tier : 'silver',
             note: item.note || '',
@@ -116,7 +154,6 @@ export default function ScanWins({ habits, onConfirm }) {
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         style={{ display: 'none' }}
         onChange={handleFile}
       />
