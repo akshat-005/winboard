@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { TIERS, TIER_ORDER, isLoggedToday, winsOnDate, dateStr } from '../lib/winLogic'
+import ScanWins from './ScanWins'
 
-export default function Today({ habits, wins, onLogHabit, onUnlogHabit, onAddOutcome, onAddClutch }) {
+export default function Today({ habits, wins, onLogHabit, onUnlogHabit, onAddOutcome, onAddClutch, onAddScannedWins }) {
   const today = dateStr()
   const [promoted, setPromoted] = useState(new Set())
   const [panel, setPanel] = useState(null) // null | 'outcome' | 'clutch'
@@ -87,6 +88,8 @@ export default function Today({ habits, wins, onLogHabit, onUnlogHabit, onAddOut
           + Clutch win
         </button>
       </div>
+
+      <ScanWins onConfirm={onAddScannedWins} />
 
       {panel && (
         <div className="inline-panel">

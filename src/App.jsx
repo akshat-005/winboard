@@ -134,6 +134,26 @@ export default function App() {
     await insertWin({ type: 'clutch', habit_id: null, name, tier, points: TIERS[tier].points, note })
   }
 
+  async function onAddScannedWins(items) {
+    const userId = session.user.id
+    const ts = new Date().toISOString()
+    const rows = items.map((item) => ({
+      user_id: userId,
+      ts,
+      type: 'outcome',
+      habit_id: null,
+      name: item.name,
+      tier: item.tier,
+      points: TIERS[item.tier].points,
+      note: item.note,
+    }))
+    const { data, error } = await supabase.from('wins').insert(rows).select()
+    if (error) { console.error(error); return }
+    const updated = [...wins, ...data]
+    setWins(updated)
+    flashFoughtBack(updated)
+  }
+
   async function onAddHabit({ name, tier }) {
     const userId = session.user.id
     const { data, error } = await supabase
@@ -439,6 +459,7 @@ VITE_SUPABASE_ANON_KEY=your_anon_key`}
             onUnlogHabit={onUnlogHabit}
             onAddOutcome={onAddOutcome}
             onAddClutch={onAddClutch}
+            onAddScannedWins={onAddScannedWins}
           />
         )}
         {tab === 'habits' && (

@@ -443,6 +443,41 @@ textarea {
   margin-top: 12px;
 }
 
+.scan-candidate {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.scan-candidate:last-of-type {
+  border-bottom: none;
+}
+
+.scan-candidate-checkbox {
+  margin-top: 12px;
+  accent-color: var(--brass);
+}
+
+.scan-candidate-fields {
+  flex: 1;
+}
+
+.scan-candidate-remove {
+  margin-top: 8px;
+  background: none;
+  border: none;
+  color: var(--chalk-dim);
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px;
+}
+
+.scan-candidate-remove:hover {
+  color: var(--brass);
+}
+
 .empty-state {
   font-size: 14px;
   color: var(--chalk-dim);
